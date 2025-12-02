@@ -1,0 +1,52 @@
+name: Evaluate model
+description: Loads model, evaluates it, saves metrics.json.
+inputs:
+- {name: preprocessed_dir, type: String}
+- {name: model_path, type: String}
+- {name: metrics_output, type: String}
+implementation:
+  container:
+    image: python:3.7
+    command:
+    - sh
+    - -ec
+    - |
+      program_path=$(mktemp)
+      printf "%s" "$0" > "$program_path"
+      python3 -u "$program_path" "$@"
+    - |
+      def evaluate_model(preprocessed_dir, model_path, metrics_output):
+          """
+          Loads model, evaluates it, saves metrics.json.
+          """
+          X_test = pd.read_csv(f"{preprocessed_dir}/X_test.csv")
+          y_test = pd.read_csv(f"{preprocessed_dir}/y_test.csv")
+
+          model = joblib.load(model_path)
+
+          predictions = model.predict(X_test)
+
+          mse = mean_squared_error(y_test, predictions)
+          r2 = r2_score(y_test, predictions)
+
+          with open(metrics_output, "w") as f:
+              f.write(f"mse: {mse}\n")
+              f.write(f"r2: {r2}\n")
+
+          print("Metrics saved:", metrics_output)
+
+      import argparse
+      _parser = argparse.ArgumentParser(prog='Evaluate model', description='Loads model, evaluates it, saves metrics.json.')
+      _parser.add_argument("--preprocessed-dir", dest="preprocessed_dir", type=str, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("--model-path", dest="model_path", type=str, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("--metrics-output", dest="metrics_output", type=str, required=True, default=argparse.SUPPRESS)
+      _parsed_args = vars(_parser.parse_args())
+
+      _outputs = evaluate_model(**_parsed_args)
+    args:
+    - --preprocessed-dir
+    - {inputValue: preprocessed_dir}
+    - --model-path
+    - {inputValue: model_path}
+    - --metrics-output
+    - {inputValue: metrics_output}

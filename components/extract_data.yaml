@@ -1,0 +1,41 @@
+name: Extract data
+description: Fetch dataset from DVC remote using `dvc get`.
+inputs:
+- {name: dvc_remote_url, type: String}
+- {name: output_path, type: String}
+implementation:
+  container:
+    image: python:3.7
+    command:
+    - sh
+    - -ec
+    - |
+      program_path=$(mktemp)
+      printf "%s" "$0" > "$program_path"
+      python3 -u "$program_path" "$@"
+    - |
+      def extract_data(dvc_remote_url, output_path):
+          """
+          Fetch dataset from DVC remote using `dvc get`.
+          """
+          if not os.path.exists(output_path):
+              os.makedirs(output_path)
+
+          subprocess.run(
+              ["dvc", "get", dvc_remote_url, "data/raw_data.csv", "-o", f"{output_path}/raw_data.csv"],
+              check=True
+          )
+          print("Dataset fetched to:", output_path)
+
+      import argparse
+      _parser = argparse.ArgumentParser(prog='Extract data', description='Fetch dataset from DVC remote using `dvc get`.')
+      _parser.add_argument("--dvc-remote-url", dest="dvc_remote_url", type=str, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("--output-path", dest="output_path", type=str, required=True, default=argparse.SUPPRESS)
+      _parsed_args = vars(_parser.parse_args())
+
+      _outputs = extract_data(**_parsed_args)
+    args:
+    - --dvc-remote-url
+    - {inputValue: dvc_remote_url}
+    - --output-path
+    - {inputValue: output_path}
